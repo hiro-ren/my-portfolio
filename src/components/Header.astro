@@ -1,0 +1,58 @@
+---
+import logo from '../assets/logo.png';
+---
+<header class="page-header">
+	<a href="/" class="brand-logo-link">
+		<img class="brand-logo" src={logo.src} alt="Brand logo" />
+	</a>
+	<nav class="nav-menu" aria-label="Primary navigation">
+		<a href="/">Home</a>
+		<a href="/projects">Projects</a>
+		<a href="/contact">Contact</a>
+		<a href="/hobbies">Hobbies</a>
+	</nav>
+</header>
+
+<style>
+	.page-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1px 20px;
+		position: sticky;
+		top: 0;
+		backdrop-filter: blur(18px);
+		background: rgba(255, 255, 255, 0.86);
+		border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+	}
+
+	.brand-logo-link {
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.brand-logo {
+		height: auto;
+		max-height: 100px;
+		object-fit: contain;
+	}
+
+	.nav-menu {
+		display: flex;
+		gap: 28px;
+        margin-right: 20px
+	}
+
+	.nav-menu a {
+		color: #334155;
+		text-decoration: none;
+		font-size: 0.95rem;
+		font-weight: 500;
+		transition: color 0.2s ease;
+	}
+
+	.nav-menu a:hover,
+		.nav-menu a:focus-visible {
+		color: #0f172a;
+	}
+</style>

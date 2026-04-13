@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="logoTitle">
+  <title id="logoTitle">Brand Logo</title>
+  <rect width="120" height="120" rx="24" ry="24" fill="#0f172a" />
+  <path d="M30 90 L50 30 L70 90 Z" fill="#38bdf8" />
+  <circle cx="60" cy="60" r="14" fill="#f8fafc" />
+</svg>
