@@ -5,5 +5,180 @@ import Header from '../components/Header.astro';
 
 <Layout>
 	<Header />
-	<main class="page-shell"></main>
+	<main class="landing-page">
+
+		<section class="hero-panel" id="projects-video">
+			<div class="video-player">
+				<iframe
+					src="https://www.youtube.com/embed/gB90me0aqSY"
+					title="YouTube demo reel"
+					frameborder="0"
+					allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+					allowfullscreen
+				></iframe>
+			</div>
+		</section>
+
+		<section class="video-grid" id="projects-grid">
+			<div class="grid-card">
+				<div class="grid-video-item">
+					<div class="grid-video-player">
+						<iframe
+							src="https://player.vimeo.com/video/251238799"
+							title="VFX demo reel"
+							frameborder="0"
+							allow="autoplay; fullscreen; picture-in-picture"
+							allowfullscreen
+						></iframe>
+					</div>
+					<div class="video-description">
+						<div class="video-description-title">Pixar Undergraduate Program</div>
+						<div class="video-description-copy">Responsible for modelling, particle effects, additional lighting.</div>
+					</div>
+				</div>
+				<div class="grid-video-item">
+					<div class="grid-video-player">
+						<iframe
+							src="https://player.vimeo.com/video/197258267"
+							title="VFX demo reel"
+							frameborder="0"
+							allow="autoplay; fullscreen; picture-in-picture"
+							allowfullscreen
+						></iframe>
+					</div>
+					<div class="video-description">
+						<div class="video-description-title">BIRDCAGE - Short Film</div>
+						<div class="video-description-copy">Responsible for Lighting, Shading, and compositing.
+Vincent Cappelluti animation film ▷ http://www.vincentcapp.com/.</div>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
 </Layout>
+
+<style>
+	:global(body) {
+		margin: 0;
+		min-height: 100vh;
+		font-family: Inter, system-ui, sans-serif;
+		background:
+			radial-gradient(900px 480px at -10% -15%, rgba(147, 197, 253, 0.42), transparent 62%),
+			radial-gradient(760px 420px at 110% 0%, rgba(196, 181, 253, 0.34), transparent 60%),
+			linear-gradient(135deg, #ffffff 0%, #ecf5ff 38%, #f4f8ff 68%, #edf6ff 100%);
+		color: #0f172a;
+	}
+
+	.landing-page {
+		min-height: 100vh;
+		background:
+			radial-gradient(1100px 500px at 50% 120%, rgba(186, 230, 253, 0.32), transparent 60%),
+			radial-gradient(620px 320px at 20% 35%, rgba(219, 234, 254, 0.42), transparent 64%);
+	}
+
+
+	.hero-panel {
+		display: flex;
+		justify-content: center;
+		padding: 80px 24px 0;
+	}
+
+	.video-player {
+		width: 100%;
+		max-width: 1120px;
+		aspect-ratio: 16 / 9;
+		max-height: 80vh;
+		overflow: hidden;
+		background: #000;
+	}
+
+	.video-player iframe {
+		width: 100%;
+		height: 100%;
+		border: 0;
+		display: block;
+	}
+
+	.video-grid {
+		display: flex;
+		justify-content: center;
+		margin-top: 50px;
+		padding: 0 24px 48px;
+	}
+
+	.grid-card {
+		width: min(1120px, 100%);
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 24px;
+	}
+
+	.grid-video-item {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.grid-video-player {
+		width: 100%;
+		aspect-ratio: 16 / 9;
+		overflow: hidden;
+		background: #000;
+	}
+
+	.grid-video-player iframe {
+		width: 100%;
+		height: 100%;
+		border: 0;
+		display: block;
+	}
+
+	.video-description {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		margin: 0;
+	}
+
+	.video-description-title {
+		display: block;
+		font-size: 1.05rem;
+		font-weight: 700;
+		color: #0f172a;
+	}
+
+	.video-description-copy {
+		color: #475569;
+		font-size: 0.95rem;
+		font-weight: 300;
+		line-height: 1.6;
+	}
+
+	@media (max-width: 860px) {
+		.page-header {
+			flex-wrap: wrap;
+			gap: 20px;
+		}
+
+		.nav-menu {
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 18px;
+		}
+
+		.grid-card {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (max-width: 580px) {
+		.page-header {
+			padding: 20px 18px;
+		}
+
+		.hero-panel {
+			padding: 0 16px 0;
+		}
+	}
+</style>
+
