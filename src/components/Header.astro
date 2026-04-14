@@ -1,17 +1,45 @@
 ---
 import logo from '../assets/logo2.png';
 ---
-<header class="page-header">
+<header class="page-header" transition:persist>
 	<a href="/" class="brand-logo-link">
 		<img class="brand-logo" src={logo.src} alt="Brand logo" />
 	</a>
 	<nav class="nav-menu" aria-label="Primary navigation">
 		<a href="/">Home</a>
 		<a href="/projects">Projects</a>
+		<a href="/resume">Resume</a>
 		<a href="/contact">Contact</a>
 		<a href="/hobbies">Hobbies</a>
 	</nav>
 </header>
+
+<script is:inline>
+	const bindHomeRefreshFlag = () => {
+		const homeLink = document.querySelector('.nav-menu a[href="/"]');
+		if (!(homeLink instanceof HTMLAnchorElement) || homeLink.dataset.bgRefreshBound === 'true') {
+			return;
+		}
+
+		homeLink.addEventListener('click', () => {
+			try {
+				sessionStorage.setItem('portfolio-refresh-home-bg', '1');
+			} catch {
+				// Ignore storage access errors.
+			}
+		});
+
+		homeLink.dataset.bgRefreshBound = 'true';
+	};
+
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', bindHomeRefreshFlag, { once: true });
+	} else {
+		bindHomeRefreshFlag();
+	}
+
+	document.addEventListener('astro:page-load', bindHomeRefreshFlag);
+</script>
 
 <style>
 	.page-header {
@@ -22,9 +50,13 @@ import logo from '../assets/logo2.png';
 		position: sticky;
 		top: 0;
 		z-index: 20;
+		-webkit-backdrop-filter: blur(18px);
 		backdrop-filter: blur(18px);
-		background: rgba(255, 255, 255, 0.8);
+		background: rgba(255, 255, 255, 0.075);
 		border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+		transform: translateZ(0);
+		backface-visibility: hidden;
+		contain: paint;
 	}
 
 	.brand-logo-link {
@@ -36,6 +68,7 @@ import logo from '../assets/logo2.png';
 		height: auto;
 		max-height: 100px;
 		object-fit: contain;
+		filter: invert(1);
 	}
 
 	.nav-menu {
@@ -45,15 +78,35 @@ import logo from '../assets/logo2.png';
 	}
 
 	.nav-menu a {
-		color: #334155;
+		color: #ffffff;
 		text-decoration: none;
 		font-size: 0.95rem;
-		font-weight: 500;
+		font-family: 'Quicksand', sans-serif;
+		font-weight: 400;
 		transition: color 0.2s ease;
 	}
 
 	.nav-menu a:hover,
 		.nav-menu a:focus-visible {
 		color: #0f172a;
+	}
+
+	@media (max-width: 860px) {
+		.page-header {
+			flex-wrap: wrap;
+			gap: 20px;
+		}
+
+		.nav-menu {
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 18px;
+		}
+	}
+
+	@media (max-width: 580px) {
+		.page-header {
+			padding: 20px 18px;
+		}
 	}
 </style>

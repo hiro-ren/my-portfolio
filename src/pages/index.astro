@@ -28,21 +28,32 @@ const posters = Object.entries(posterModules)
 const loopPosters = [...posters, ...posters];
 const posterStep = 300;
 const loopDistance = posters.length * posterStep;
-const loopDuration = Math.max(12, posters.length * 3);
+const loopDuration = Math.max(12, posters.length * 3.5);
 const backgroundImages = posters.map((poster) => poster.src);
 ---
 
 <Layout>
 	<Header />
 	<main class="landing-page">
-		<div class="bg-image-layer" aria-hidden="true">
-			<img
-				id="random-bg-image"
-				src={backgroundImages[0] ?? ''}
-				alt=""
-				loading="eager"
-				decoding="async"
-			/>
+		<script is:inline>
+			try {
+				const initialBg =
+					sessionStorage.getItem('portfolio-painted-bg-image') ??
+					sessionStorage.getItem('portfolio-bg-image');
+				if (initialBg) {
+					document.documentElement.style.setProperty('--initial-bg-image', `url("${initialBg}")`);
+				}
+			} catch {
+				// Ignore storage access errors.
+			}
+		</script>
+		<div
+			class="bg-image-layer"
+			aria-hidden="true"
+			style={`--default-bg-image: url('${backgroundImages[0] ?? ''}')`}
+		>
+			<div class="bg-frame bg-frame-a"></div>
+			<div class="bg-frame bg-frame-b"></div>
 		</div>
 		<div class="bg-dim-overlay" aria-hidden="true"></div>
 
@@ -80,14 +91,93 @@ const backgroundImages = posters.map((poster) => poster.src);
 <script src="https://player.vimeo.com/api/player.js"></script>
 <script define:vars={{ backgroundImages }}>
 	const initDynamicBackground = () => {
-		const bgImage = document.getElementById('random-bg-image');
+		const bgLayer = document.querySelector('.bg-image-layer');
+		const bgFrameA = bgLayer?.querySelector('.bg-frame-a');
+		const bgFrameB = bgLayer?.querySelector('.bg-frame-b');
+		const bgRuntimeState = /** @type {Window & { __homeReloadBgHandled?: boolean }} */ (window);
+		const bgStorageKey = 'portfolio-bg-image';
+		const paintedBgKey = 'portfolio-painted-bg-image';
+		const refreshHomeBgKey = 'portfolio-refresh-home-bg';
 
-		if (!(bgImage instanceof HTMLImageElement) || !Array.isArray(backgroundImages) || backgroundImages.length === 0) {
+		if (
+			!(bgLayer instanceof HTMLElement) ||
+			!(bgFrameA instanceof HTMLElement) ||
+			!(bgFrameB instanceof HTMLElement) ||
+			!Array.isArray(backgroundImages) ||
+			backgroundImages.length === 0
+		) {
 			return;
 		}
 
-		const randomIndex = Math.floor(Math.random() * backgroundImages.length);
-		bgImage.src = backgroundImages[randomIndex];
+		const navEntry = performance.getEntriesByType('navigation')[0];
+		const navType = navEntry && typeof navEntry === 'object' && 'type' in navEntry ? navEntry.type : '';
+		const shouldRefreshFromHomeClick =
+			window.location.pathname === '/' && sessionStorage.getItem(refreshHomeBgKey) === '1';
+		const shouldRefreshFromHomeReload =
+			window.location.pathname === '/' && navType === 'reload' && bgRuntimeState.__homeReloadBgHandled !== true;
+
+		if (shouldRefreshFromHomeClick || shouldRefreshFromHomeReload) {
+			sessionStorage.removeItem(bgStorageKey);
+			sessionStorage.removeItem(refreshHomeBgKey);
+			if (shouldRefreshFromHomeReload) {
+				bgRuntimeState.__homeReloadBgHandled = true;
+			}
+		}
+
+		let sharedBgImage = sessionStorage.getItem(bgStorageKey);
+		if (!sharedBgImage) {
+			const randomIndex = Math.floor(Math.random() * backgroundImages.length);
+			sharedBgImage = backgroundImages[randomIndex];
+			sessionStorage.setItem(bgStorageKey, sharedBgImage);
+		}
+
+		const paintedBgImage = sessionStorage.getItem(paintedBgKey);
+		const shouldUseFallback = !bgLayer.classList.contains('has-live-image');
+		const activeIsB = bgLayer.classList.contains('is-b-active');
+		const activeFrame = activeIsB ? bgFrameB : bgFrameA;
+		const inactiveFrame = activeIsB ? bgFrameA : bgFrameB;
+		let activeBgUrl = activeFrame.dataset.bgUrl ?? '';
+
+		const setFrameImage = (frame, imageUrl) => {
+			frame.style.backgroundImage = `url("${imageUrl}")`;
+			frame.dataset.bgUrl = imageUrl;
+		};
+
+		const revealBackground = () => {
+			if (shouldUseFallback) {
+				bgLayer.classList.add('has-live-image');
+			}
+			document.documentElement.style.setProperty('--initial-bg-image', `url("${sharedBgImage}")`);
+			sessionStorage.setItem(paintedBgKey, sharedBgImage);
+		};
+
+		const preloadImage = (imageUrl, onReady) => {
+			const preload = new Image();
+			preload.src = imageUrl;
+			if (typeof preload.decode === 'function') {
+				preload.decode().catch(() => undefined).finally(onReady);
+				return;
+			}
+			preload.onload = onReady;
+			preload.onerror = onReady;
+		};
+
+		if (!activeBgUrl) {
+			const seedImage = paintedBgImage || sharedBgImage;
+			setFrameImage(activeFrame, seedImage);
+			activeBgUrl = seedImage;
+		}
+
+		if (activeBgUrl !== sharedBgImage) {
+			preloadImage(sharedBgImage, () => {
+				setFrameImage(inactiveFrame, sharedBgImage);
+				bgLayer.classList.toggle('is-b-active', !activeIsB);
+				revealBackground();
+			});
+		} else {
+			setFrameImage(activeFrame, sharedBgImage);
+			revealBackground();
+		}
 
 		const maxShift = 26;
 		const scale = 1.12;
@@ -95,7 +185,8 @@ const backgroundImages = posters.map((poster) => poster.src);
 
 		const updateParallax = () => {
 			const shift = Math.max(-maxShift, Math.min(maxShift, window.scrollY * 0.12));
-			bgImage.style.transform = `translate3d(0, ${shift.toFixed(2)}px, 0) scale(${scale})`;
+			bgLayer.style.setProperty('--bg-shift', `${shift.toFixed(2)}px`);
+			bgLayer.style.setProperty('--bg-scale', `${scale}`);
 			ticking = false;
 		};
 
@@ -108,9 +199,9 @@ const backgroundImages = posters.map((poster) => poster.src);
 			window.requestAnimationFrame(updateParallax);
 		};
 
-		if (bgImage.dataset.parallaxBound !== 'true') {
+		if (bgLayer.dataset.parallaxBound !== 'true') {
 			window.addEventListener('scroll', onScroll, { passive: true });
-			bgImage.dataset.parallaxBound = 'true';
+			bgLayer.dataset.parallaxBound = 'true';
 		}
 		updateParallax();
 	};
@@ -222,16 +313,54 @@ const backgroundImages = posters.map((poster) => poster.src);
 	.bg-image-layer {
 		z-index: 0;
 		overflow: hidden;
+		--bg-shift: 0px;
+		--bg-scale: 1.12;
 	}
 
-	.bg-image-layer img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
+	.bg-image-layer::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image: var(--initial-bg-image, var(--default-bg-image, none));
+		background-position: center;
+		background-size: cover;
+		background-repeat: no-repeat;
 		filter: blur(5px) saturate(1.05) brightness(0.9);
 		transform: translate3d(0, 0, 0) scale(1.12);
-		transition: transform 120ms linear;
+		opacity: 1;
+		transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.bg-image-layer.has-live-image::before {
+		opacity: 0;
+	}
+
+	.bg-frame {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		background-position: center;
+		background-size: cover;
+		background-repeat: no-repeat;
+		filter: blur(5px) saturate(1.05) brightness(0.9);
+		opacity: 0;
+		transform: translate3d(0, var(--bg-shift), 0) scale(var(--bg-scale));
+		transition: transform 120ms linear, opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
 		will-change: transform;
+	}
+
+	.bg-frame-a {
+		background-image: var(--initial-bg-image, var(--default-bg-image, none));
+		opacity: 1;
+	}
+
+	.bg-image-layer.is-b-active .bg-frame-a {
+		opacity: 0;
+	}
+
+	.bg-image-layer.is-b-active .bg-frame-b {
+		opacity: 1;
 	}
 
 	.bg-dim-overlay {
@@ -259,7 +388,8 @@ const backgroundImages = posters.map((poster) => poster.src);
 		border: 1px solid rgba(15, 23, 42, 0.08);
 		border-radius: 32px;
 		background: #ffffff;
-		box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+		isolation: isolate;
+        box-shadow: 0 0 48px rgba(2, 6, 23, 0.34);
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -274,6 +404,7 @@ const backgroundImages = posters.map((poster) => poster.src);
 		max-height: 80vh;
 		overflow: hidden;
 		background: #000;
+		border-radius: 8px;
 	}
 
 	.poster-carousel {
@@ -281,18 +412,18 @@ const backgroundImages = posters.map((poster) => poster.src);
 		margin: 36px calc(50% - 50vw) 0;
 		padding: 0 24px;
 		overflow: hidden;
-		filter: brightness(1);
+		filter: brightness(0.8);
 		transition: filter 180ms ease;
 	}
 
 	.poster-carousel.is-video-playing {
-		filter: brightness(0.6);
+		filter: brightness(0.4);
 	}
 
 	.carousel-track {
 		display: flex;
 		width: auto;
-		animation: carousel var(--carousel-duration, 16s) linear infinite;
+		animation: carousel var(--carousel-duration, s) linear infinite;
 		gap: 20px;
 		transform: translateX(0);
 	}
@@ -330,24 +461,7 @@ const backgroundImages = posters.map((poster) => poster.src);
 		display: block;
 	}
 
-	@media (max-width: 860px) {
-		.page-header {
-			flex-wrap: wrap;
-			gap: 20px;
-		}
-
-		.nav-menu {
-			flex-wrap: wrap;
-			justify-content: center;
-			gap: 18px;
-		}
-	}
-
 	@media (max-width: 580px) {
-		.page-header {
-			padding: 20px 18px;
-		}
-
 		.hero-panel {
 			padding: 0 16px 32px;
 		}
