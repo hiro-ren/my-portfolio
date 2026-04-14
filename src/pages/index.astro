@@ -23,7 +23,7 @@ const posters = Object.entries(posterModules)
 		};
 	})
 	.filter((poster) => poster.src)
-	.sort((a, b) => a.sortOrder - b.sortOrder);
+		.sort((a, b) => b.sortOrder - a.sortOrder);
 
 const loopPosters = [...posters, ...posters];
 const posterStep = 300;
@@ -50,7 +50,8 @@ const backgroundImages = posters.map((poster) => poster.src);
 			<div class="hero-card">
 				<div class="video-player">
 					<iframe
-						src="https://player.vimeo.com/video/925707755"
+						id="home-vimeo-player"
+						src="https://player.vimeo.com/video/925707755?api=1&player_id=home-vimeo-player"
 						title="VFX demo reel"
 						frameborder="0"
 						allow="autoplay; fullscreen; picture-in-picture"
@@ -76,6 +77,7 @@ const backgroundImages = posters.map((poster) => poster.src);
 	</main>
 </Layout>
 
+<script src="https://player.vimeo.com/api/player.js"></script>
 <script define:vars={{ backgroundImages }}>
 	const initDynamicBackground = () => {
 		const bgImage = document.getElementById('random-bg-image');
@@ -113,13 +115,84 @@ const backgroundImages = posters.map((poster) => poster.src);
 		updateParallax();
 	};
 
+	const setVideoPlayingState = (isPlaying) => {
+		const carousel = document.querySelector('.poster-carousel');
+		const carouselTrack = document.querySelector('.carousel-track');
+
+		if (!(carousel instanceof HTMLElement) || !(carouselTrack instanceof HTMLElement)) {
+			return;
+		}
+
+		carousel.classList.toggle('is-video-playing', isPlaying);
+		carouselTrack.style.animationPlayState = isPlaying ? 'paused' : 'running';
+	};
+
+	const initVideoAwareCarousel = () => {
+		const iframe = document.getElementById('home-vimeo-player');
+
+		if (!(iframe instanceof HTMLIFrameElement) || iframe.dataset.videoSyncBound === 'true') {
+			return;
+		}
+
+		const playerOrigin = 'https://player.vimeo.com';
+
+		const sendVimeoCommand = (command) => {
+			iframe.contentWindow?.postMessage(JSON.stringify(command), playerOrigin);
+		};
+
+		const onMessage = (event) => {
+			if (event.origin !== playerOrigin) {
+				return;
+			}
+
+			let eventData = event.data;
+			if (typeof event.data === 'string') {
+				try {
+					eventData = JSON.parse(event.data);
+				} catch {
+					return;
+				}
+			}
+
+			if (!eventData || typeof eventData !== 'object' || eventData.player_id !== 'home-vimeo-player') {
+				return;
+			}
+
+			if (eventData.event === 'play') {
+				setVideoPlayingState(true);
+			}
+
+			if (eventData.event === 'pause' || eventData.event === 'ended') {
+				setVideoPlayingState(false);
+			}
+		};
+
+		const bindVimeoEvents = () => {
+			sendVimeoCommand({ method: 'addEventListener', value: 'play' });
+			sendVimeoCommand({ method: 'addEventListener', value: 'pause' });
+			sendVimeoCommand({ method: 'addEventListener', value: 'ended' });
+		};
+
+		window.addEventListener('message', onMessage);
+		iframe.addEventListener('load', bindVimeoEvents, { once: true });
+		if (iframe.contentWindow) {
+			bindVimeoEvents();
+		}
+		iframe.dataset.videoSyncBound = 'true';
+	};
+
 	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', initDynamicBackground, { once: true });
+		document.addEventListener('DOMContentLoaded', () => {
+			initDynamicBackground();
+			initVideoAwareCarousel();
+		}, { once: true });
 	} else {
 		initDynamicBackground();
+		initVideoAwareCarousel();
 	}
 
 	document.addEventListener('astro:page-load', initDynamicBackground);
+	document.addEventListener('astro:page-load', initVideoAwareCarousel);
 </script>
 
 <style>
@@ -155,7 +228,7 @@ const backgroundImages = posters.map((poster) => poster.src);
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		filter: blur(10px) saturate(1.05) brightness(0.9);
+		filter: blur(5px) saturate(1.05) brightness(0.9);
 		transform: translate3d(0, 0, 0) scale(1.12);
 		transition: transform 120ms linear;
 		will-change: transform;
@@ -208,6 +281,12 @@ const backgroundImages = posters.map((poster) => poster.src);
 		margin: 36px calc(50% - 50vw) 0;
 		padding: 0 24px;
 		overflow: hidden;
+		filter: brightness(1);
+		transition: filter 180ms ease;
+	}
+
+	.poster-carousel.is-video-playing {
+		filter: brightness(0.6);
 	}
 
 	.carousel-track {
