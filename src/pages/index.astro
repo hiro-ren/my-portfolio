@@ -301,6 +301,7 @@ const backgroundImages = posters.map((poster) => poster.src);
 		min-height: 100vh;
 		position: relative;
 		isolation: isolate;
+		overflow-x: clip;
 	}
 
 	.bg-image-layer,
@@ -408,9 +409,10 @@ const backgroundImages = posters.map((poster) => poster.src);
 	}
 
 	.poster-carousel {
-		width: 100vw;
-		margin: 36px calc(50% - 50vw) 0;
+		width: 100%;
+		margin: 36px 0 0;
 		padding: 0 24px;
+		box-sizing: border-box;
 		overflow: hidden;
 		filter: brightness(0.8);
 		transition: filter 180ms ease;
