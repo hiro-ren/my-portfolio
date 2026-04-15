@@ -296,6 +296,39 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 		});
 	};
 
+	const syncHobbiesMobileTabListLayout = () => {
+		const tabList = document.querySelector('.tab-list');
+		const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+		const isPhoneView = window.matchMedia('(max-width: 580px)').matches;
+
+		if (tabList instanceof HTMLElement) {
+			if (isPhoneView) {
+				tabList.style.width = 'fit-content';
+				tabList.style.maxWidth = 'calc(100% - 24px)';
+				tabList.style.justifyContent = 'center';
+			} else {
+				tabList.style.removeProperty('width');
+				tabList.style.removeProperty('max-width');
+				tabList.style.removeProperty('justify-content');
+			}
+		}
+
+		tabButtons.forEach((button) => {
+			if (!(button instanceof HTMLElement)) {
+				return;
+			}
+
+			if (isPhoneView) {
+				button.style.flex = '0 0 auto';
+				button.style.minWidth = '104px';
+				return;
+			}
+
+			button.style.removeProperty('flex');
+			button.style.removeProperty('min-width');
+		});
+	};
+
 	const bindHobbiesLayoutMetrics = () => {
 		if (document.body.dataset.hobbiesGradientBound === 'true') {
 			return;
@@ -303,6 +336,7 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 
 		window.addEventListener('resize', syncHobbiesLayoutMetrics);
 		window.addEventListener('resize', syncHobbiesMobileGridSpacing);
+		window.addEventListener('resize', syncHobbiesMobileTabListLayout);
 		document.body.dataset.hobbiesGradientBound = 'true';
 	};
 
@@ -327,6 +361,7 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 			});
 
 			syncHobbiesMobileGridSpacing();
+			syncHobbiesMobileTabListLayout();
 			window.requestAnimationFrame(syncHobbiesLayoutMetrics);
 		};
 
@@ -356,6 +391,7 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 	syncHobbiesRouteSurface();
 	syncHobbiesLayoutMetrics();
 	syncHobbiesMobileGridSpacing();
+	syncHobbiesMobileTabListLayout();
 	bindHobbiesLayoutMetrics();
 
 	if (document.readyState === 'loading') {
@@ -364,6 +400,7 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 			() => {
 				syncHobbiesLayoutMetrics();
 				syncHobbiesMobileGridSpacing();
+				syncHobbiesMobileTabListLayout();
 				initHobbyTabs();
 			},
 			{ once: true }
@@ -371,12 +408,14 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 	} else {
 		syncHobbiesLayoutMetrics();
 		syncHobbiesMobileGridSpacing();
+		syncHobbiesMobileTabListLayout();
 		initHobbyTabs();
 	}
 
 	document.addEventListener('astro:page-load', syncHobbiesRouteSurface);
 	document.addEventListener('astro:page-load', syncHobbiesLayoutMetrics);
 	document.addEventListener('astro:page-load', syncHobbiesMobileGridSpacing);
+	document.addEventListener('astro:page-load', syncHobbiesMobileTabListLayout);
 	document.addEventListener('astro:page-load', bindHobbiesLayoutMetrics);
 	document.addEventListener('astro:page-load', initHobbyTabs);
 </script>
@@ -458,8 +497,18 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 		const scale = 1.12;
 		let ticking = false;
 
+		const getPullRefreshOffset = () => {
+			const visualViewportOffset = window.visualViewport?.offsetTop ?? 0;
+			if (visualViewportOffset > 0) {
+				return visualViewportOffset;
+			}
+
+			const documentTop = document.documentElement.getBoundingClientRect().top;
+			return documentTop > 0 ? documentTop : 0;
+		};
+
 		const updateParallax = () => {
-			const shift = Math.max(-maxShift, Math.min(maxShift, window.scrollY * 0.12));
+			const shift = Math.max(-maxShift, Math.min(maxShift + 44, window.scrollY * 0.12 + getPullRefreshOffset()));
 			bgLayer.style.setProperty('--bg-shift', `${shift.toFixed(2)}px`);
 			bgLayer.style.setProperty('--bg-scale', `${scale}`);
 			ticking = false;
@@ -476,6 +525,8 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 
 		if (bgLayer.dataset.parallaxBound !== 'true') {
 			window.addEventListener('scroll', onScroll, { passive: true });
+			window.visualViewport?.addEventListener('scroll', onScroll, { passive: true });
+			window.visualViewport?.addEventListener('resize', onScroll, { passive: true });
 			bgLayer.dataset.parallaxBound = 'true';
 		}
 		updateParallax();
@@ -775,16 +826,16 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 		}
 
 		.tab-list {
-			width: 100%;
-			max-width: 100%;
+			width: fit-content;
+			max-width: calc(100% - 24px);
 			box-sizing: border-box;
-			justify-content: stretch;
+			justify-content: center;
 			top: 92px;
 		}
 
 		.tab-button {
-			flex: 1 1 0;
-			min-width: 0;
+			flex: 0 0 auto;
+			min-width: 104px;
 			padding: 0 12px;
 		}
 

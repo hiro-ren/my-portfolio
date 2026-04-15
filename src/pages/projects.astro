@@ -180,8 +180,18 @@ Vincent Cappelluti animation film ▷ http://www.vincentcapp.com/.</div>
 		const scale = 1.12;
 		let ticking = false;
 
+		const getPullRefreshOffset = () => {
+			const visualViewportOffset = window.visualViewport?.offsetTop ?? 0;
+			if (visualViewportOffset > 0) {
+				return visualViewportOffset;
+			}
+
+			const documentTop = document.documentElement.getBoundingClientRect().top;
+			return documentTop > 0 ? documentTop : 0;
+		};
+
 		const updateParallax = () => {
-			const shift = Math.max(-maxShift, Math.min(maxShift, window.scrollY * 0.12));
+			const shift = Math.max(-maxShift, Math.min(maxShift + 44, window.scrollY * 0.12 + getPullRefreshOffset()));
 			bgLayer.style.setProperty('--bg-shift', `${shift.toFixed(2)}px`);
 			bgLayer.style.setProperty('--bg-scale', `${scale}`);
 			ticking = false;
@@ -198,6 +208,8 @@ Vincent Cappelluti animation film ▷ http://www.vincentcapp.com/.</div>
 
 		if (bgLayer.dataset.parallaxBound !== 'true') {
 			window.addEventListener('scroll', onScroll, { passive: true });
+			window.visualViewport?.addEventListener('scroll', onScroll, { passive: true });
+			window.visualViewport?.addEventListener('resize', onScroll, { passive: true });
 			bgLayer.dataset.parallaxBound = 'true';
 		}
 		updateParallax();
