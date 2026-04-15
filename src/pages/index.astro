@@ -225,50 +225,21 @@ const backgroundImages = posters.map((poster) => poster.src);
 			return;
 		}
 
-		const playerOrigin = 'https://player.vimeo.com';
-
-		const sendVimeoCommand = (command) => {
-			iframe.contentWindow?.postMessage(JSON.stringify(command), playerOrigin);
-		};
-
-		const onMessage = (event) => {
-			if (event.origin !== playerOrigin) {
-				return;
-			}
-
-			let eventData = event.data;
-			if (typeof event.data === 'string') {
-				try {
-					eventData = JSON.parse(event.data);
-				} catch {
-					return;
-				}
-			}
-
-			if (!eventData || typeof eventData !== 'object' || eventData.player_id !== 'home-vimeo-player') {
-				return;
-			}
-
-			if (eventData.event === 'play') {
-				setVideoPlayingState(true);
-			}
-
-			if (eventData.event === 'pause' || eventData.event === 'ended') {
-				setVideoPlayingState(false);
-			}
-		};
-
-		const bindVimeoEvents = () => {
-			sendVimeoCommand({ method: 'addEventListener', value: 'play' });
-			sendVimeoCommand({ method: 'addEventListener', value: 'pause' });
-			sendVimeoCommand({ method: 'addEventListener', value: 'ended' });
-		};
-
-		window.addEventListener('message', onMessage);
-		iframe.addEventListener('load', bindVimeoEvents, { once: true });
-		if (iframe.contentWindow) {
-			bindVimeoEvents();
+		const vimeoApi = window.Vimeo;
+		if (!vimeoApi || typeof vimeoApi.Player !== 'function') {
+			return;
 		}
+
+		const player = new vimeoApi.Player(iframe);
+		player.on('play', () => {
+			setVideoPlayingState(true);
+		});
+		player.on('pause', () => {
+			setVideoPlayingState(false);
+		});
+		player.on('ended', () => {
+			setVideoPlayingState(false);
+		});
 		iframe.dataset.videoSyncBound = 'true';
 	};
 
@@ -465,7 +436,33 @@ const backgroundImages = posters.map((poster) => poster.src);
 
 	@media (max-width: 580px) {
 		.hero-panel {
-			padding: 0 16px 32px;
+			padding: 12px 14px 24px;
+		}
+
+		.hero-card {
+			padding: 14px;
+			border-radius: 20px;
+			gap: 20px;
+		}
+
+		.video-player {
+			max-height: none;
+			border-radius: 10px;
+		}
+
+		.poster-carousel {
+			margin-top: 20px;
+			padding: 0 14px;
+		}
+
+		.carousel-track {
+			gap: 14px;
+		}
+
+		.poster-card {
+			flex-basis: 180px;
+			width: 180px;
+			height: 250px;
 		}
 	}
 </style>

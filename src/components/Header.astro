@@ -5,7 +5,18 @@ import logo from '../assets/logo3.png';
 	<a href="/" class="brand-logo-link">
 		<img class="brand-logo" src={logo.src} alt="Brand logo" />
 	</a>
-	<nav class="nav-menu" aria-label="Primary navigation">
+	<button
+		type="button"
+		class="nav-toggle"
+		aria-expanded="false"
+		aria-controls="primary-navigation"
+		aria-label="Open navigation menu"
+	>
+		<span></span>
+		<span></span>
+		<span></span>
+	</button>
+	<nav class="nav-menu" id="primary-navigation" aria-label="Primary navigation">
 		<a href="/">Home</a>
 		<a href="/projects">Projects</a>
 		<a href="/resume">Resume</a>
@@ -14,8 +25,54 @@ import logo from '../assets/logo3.png';
 </header>
 
 <script is:inline>
-	const bindHomeRefreshFlag = () => {
+	const bindHeaderInteractions = () => {
 		const homeLink = document.querySelector('.nav-menu a[href="/"]');
+		const header = document.querySelector('.page-header');
+		const navToggle = document.querySelector('.nav-toggle');
+		const navMenu = document.querySelector('.nav-menu');
+		const navLinks = Array.from(document.querySelectorAll('.nav-menu a'));
+
+		if (header instanceof HTMLElement && navToggle instanceof HTMLButtonElement && navMenu instanceof HTMLElement) {
+			const closeMenu = () => {
+				header.dataset.menuOpen = 'false';
+				navToggle.setAttribute('aria-expanded', 'false');
+				navToggle.setAttribute('aria-label', 'Open navigation menu');
+			};
+
+			if (navToggle.dataset.menuBound !== 'true') {
+				navToggle.addEventListener('click', () => {
+					const nextOpen = header.dataset.menuOpen !== 'true';
+					header.dataset.menuOpen = nextOpen ? 'true' : 'false';
+					navToggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+					navToggle.setAttribute('aria-label', nextOpen ? 'Close navigation menu' : 'Open navigation menu');
+				});
+				navToggle.dataset.menuBound = 'true';
+			}
+
+			if (navMenu.dataset.menuLinksBound !== 'true') {
+				navLinks.forEach((link) => {
+					link.addEventListener('click', () => {
+						const shouldUseTouchTapState = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+						if (shouldUseTouchTapState) {
+							link.classList.add('was-tapped');
+							window.setTimeout(() => {
+								link.classList.remove('was-tapped');
+							}, 180);
+							link.blur();
+						}
+
+						closeMenu();
+					});
+				});
+				navMenu.dataset.menuLinksBound = 'true';
+			}
+
+			if (window.innerWidth > 580) {
+				closeMenu();
+			}
+		}
+
 		if (!(homeLink instanceof HTMLAnchorElement) || homeLink.dataset.bgRefreshBound === 'true') {
 			return;
 		}
@@ -32,12 +89,12 @@ import logo from '../assets/logo3.png';
 	};
 
 	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', bindHomeRefreshFlag, { once: true });
+		document.addEventListener('DOMContentLoaded', bindHeaderInteractions, { once: true });
 	} else {
-		bindHomeRefreshFlag();
+		bindHeaderInteractions();
 	}
 
-	document.addEventListener('astro:page-load', bindHomeRefreshFlag);
+	document.addEventListener('astro:page-load', bindHeaderInteractions);
 </script>
 
 <style>
@@ -75,6 +132,33 @@ import logo from '../assets/logo3.png';
 		margin-right: 20px;
 	}
 
+	.nav-toggle {
+		display: none;
+		visibility: hidden;
+		pointer-events: none;
+		width: 44px;
+		height: 44px;
+		padding: 0;
+		border: 1px solid rgba(255, 255, 255, 0.28);
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.18);
+		color: #ffffff;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		flex-direction: column;
+		cursor: pointer;
+	}
+
+	.nav-toggle span {
+		display: block;
+		width: 18px;
+		height: 2px;
+		border-radius: 999px;
+		background: currentColor;
+		transition: transform 0.2s ease, opacity 0.2s ease;
+	}
+
 	.nav-menu a {
 		color: #ffffff;
 		text-decoration: none;
@@ -84,9 +168,31 @@ import logo from '../assets/logo3.png';
 		transition: color 0.2s ease;
 	}
 
-	.nav-menu a:hover,
-		.nav-menu a:focus-visible {
+	.nav-menu a.was-tapped {
 		color: #0f172a;
+	}
+
+	.nav-menu a:focus-visible {
+		color: #ffffff;
+		outline: 2px solid rgba(255, 255, 255, 0.72);
+		outline-offset: 4px;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.nav-menu a:hover {
+			color: #0f172a;
+		}
+	}
+
+	@media (hover: none) and (pointer: coarse) {
+		.nav-menu a {
+			color: #ffffff;
+		}
+
+		.nav-menu a:active,
+		.nav-menu a.was-tapped {
+			color: #0f172a;
+		}
 	}
 
 	@media (max-width: 860px) {
@@ -104,7 +210,59 @@ import logo from '../assets/logo3.png';
 
 	@media (max-width: 580px) {
 		.page-header {
-			padding: 20px 18px;
+			padding: 16px 14px;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.brand-logo {
+			max-height: 72px;
+		}
+
+		.nav-toggle {
+			display: inline-flex;
+			visibility: visible;
+			pointer-events: auto;
+			flex-shrink: 0;
+		}
+
+		.nav-menu {
+			display: none;
+			position: absolute;
+			top: calc(100% + 10px);
+			right: 14px;
+			left: 14px;
+			margin-right: 0;
+			padding: 12px;
+			border-radius: 20px;
+			background: rgba(15, 23, 42, 0.88);
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			box-shadow: 0 18px 40px rgba(2, 6, 23, 0.3);
+			flex-direction: column;
+			align-items: stretch;
+			gap: 6px;
+		}
+
+		.nav-menu a {
+			font-size: 0.9rem;
+			padding: 10px 12px;
+			border-radius: 12px;
+		}
+
+		.page-header[data-menu-open='true'] .nav-menu {
+			display: flex;
+		}
+
+		.page-header[data-menu-open='true'] .nav-toggle span:nth-child(1) {
+			transform: translateY(6px) rotate(45deg);
+		}
+
+		.page-header[data-menu-open='true'] .nav-toggle span:nth-child(2) {
+			opacity: 0;
+		}
+
+		.page-header[data-menu-open='true'] .nav-toggle span:nth-child(3) {
+			transform: translateY(-6px) rotate(-45deg);
 		}
 	}
 </style>

@@ -178,8 +178,9 @@ const illustrationGallery = swapImagesByIndex(
 	0,
 	7
 );
+const crochetGallerySource = (crochetImages.length > 0 ? crochetImages : safeFallback).filter((item) => item.src);
 const crochetGallery = orderImagesRowFirstForColumnGrid(
-	padImagesToMinimum((crochetImages.length > 0 ? crochetImages : safeFallback).filter((item) => item.src), 9),
+	padImagesToMinimum(crochetGallerySource, 9),
 	3,
 	3
 );
@@ -235,8 +236,19 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 
 			<section class="tab-panel" id="panel-crochet" role="tabpanel" aria-labelledby="tab-crochet" data-panel="crochet" hidden>
 				<div class="gallery-scroll gallery-scroll--crochet" role="region" aria-label="Scrollable crochet gallery">
-					<div class="gallery-grid gallery-grid--crochet">
+					<div class="gallery-grid gallery-grid--crochet gallery-grid--crochet-desktop">
 						{crochetGallery.map((item, index) => (
+							<article class={`gallery-item${item.src ? '' : ' is-empty'}`} style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;">
+								{item.src ? (
+									<img src={item.src} alt={`Crochet ${index + 1}`} loading="lazy" decoding="async" style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;" />
+								) : (
+									<div class="placeholder" role="img" aria-label="Crochet placeholder" style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;"></div>
+								)}
+							</article>
+						))}
+					</div>
+					<div class="gallery-grid gallery-grid--crochet gallery-grid--crochet-mobile">
+						{crochetGallerySource.map((item, index) => (
 							<article class={`gallery-item${item.src ? '' : ' is-empty'}`} style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;">
 								{item.src ? (
 									<img src={item.src} alt={`Crochet ${index + 1}`} loading="lazy" decoding="async" style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;" />
@@ -264,12 +276,33 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 		document.documentElement.style.setProperty('--hobbies-sticky-top', `${stickyTop}px`);
 	};
 
+	const syncHobbiesMobileGridSpacing = () => {
+		const galleryGrids = Array.from(document.querySelectorAll('.hobbies-shell .gallery-grid'));
+		const isPhoneView = window.matchMedia('(max-width: 580px)').matches;
+
+		galleryGrids.forEach((grid) => {
+			if (!(grid instanceof HTMLElement)) {
+				return;
+			}
+
+			if (isPhoneView) {
+				grid.style.paddingTop = '24px';
+				grid.style.paddingBottom = '24px';
+				return;
+			}
+
+			grid.style.removeProperty('padding-top');
+			grid.style.removeProperty('padding-bottom');
+		});
+	};
+
 	const bindHobbiesLayoutMetrics = () => {
 		if (document.body.dataset.hobbiesGradientBound === 'true') {
 			return;
 		}
 
 		window.addEventListener('resize', syncHobbiesLayoutMetrics);
+		window.addEventListener('resize', syncHobbiesMobileGridSpacing);
 		document.body.dataset.hobbiesGradientBound = 'true';
 	};
 
@@ -293,6 +326,7 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 				panel.hidden = !isActive;
 			});
 
+			syncHobbiesMobileGridSpacing();
 			window.requestAnimationFrame(syncHobbiesLayoutMetrics);
 		};
 
@@ -306,6 +340,12 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 				if (!target) {
 					return;
 				}
+
+				button.classList.add('was-tapped');
+				window.setTimeout(() => {
+					button.classList.remove('was-tapped');
+				}, 180);
+				button.blur();
 				setActiveTab(target);
 			});
 
@@ -315,6 +355,7 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 
 	syncHobbiesRouteSurface();
 	syncHobbiesLayoutMetrics();
+	syncHobbiesMobileGridSpacing();
 	bindHobbiesLayoutMetrics();
 
 	if (document.readyState === 'loading') {
@@ -322,17 +363,20 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 			'DOMContentLoaded',
 			() => {
 				syncHobbiesLayoutMetrics();
+				syncHobbiesMobileGridSpacing();
 				initHobbyTabs();
 			},
 			{ once: true }
 		);
 	} else {
 		syncHobbiesLayoutMetrics();
+		syncHobbiesMobileGridSpacing();
 		initHobbyTabs();
 	}
 
 	document.addEventListener('astro:page-load', syncHobbiesRouteSurface);
 	document.addEventListener('astro:page-load', syncHobbiesLayoutMetrics);
+	document.addEventListener('astro:page-load', syncHobbiesMobileGridSpacing);
 	document.addEventListener('astro:page-load', bindHobbiesLayoutMetrics);
 	document.addEventListener('astro:page-load', initHobbyTabs);
 </script>
@@ -606,6 +650,10 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 		color: #0f172a;
 	}
 
+	.tab-button.was-tapped {
+		color: #0f172a;
+	}
+
 	.gallery-scroll {
 		overflow-x: auto;
 		overflow-y: hidden;
@@ -651,6 +699,10 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 		--tile-height: calc(var(--tile-width) * 1500 / 1160);
 		grid-template-rows: repeat(3, var(--tile-height));
 		grid-auto-columns: var(--tile-width);
+	}
+
+	.gallery-grid--crochet-mobile {
+		display: none;
 	}
 
 	.hobbies-shell .gallery-item {
@@ -710,6 +762,89 @@ const crochetGallery = orderImagesRowFirstForColumnGrid(
 			--tile-width: calc((100% - 16px) / 2);
 			--tile-height: calc(var(--tile-width) * 1500 / 1160);
 			grid-template-rows: repeat(3, var(--tile-height));
+		}
+	}
+
+	@media (max-width: 580px) {
+		.gallery-grid--crochet-desktop {
+			display: none;
+		}
+
+		.gallery-grid--crochet-mobile {
+			display: grid;
+		}
+
+		.tab-list {
+			width: 100%;
+			max-width: 100%;
+			box-sizing: border-box;
+			justify-content: stretch;
+			top: 92px;
+		}
+
+		.tab-button {
+			flex: 1 1 0;
+			min-width: 0;
+			padding: 0 12px;
+		}
+
+		.gallery-scroll {
+			margin: 0;
+			overflow-x: visible;
+			overflow-y: visible;
+		}
+
+		.gallery-scroll--crochet {
+			padding-top: 0;
+		}
+
+		.hobbies-shell .gallery-grid,
+		.hobbies-shell .gallery-grid--crochet-mobile {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-rows: none;
+			grid-auto-flow: row;
+			grid-auto-columns: auto;
+			gap: 10px;
+			padding-top: 24px !important;
+			padding-bottom: 24px !important;
+			width: 100%;
+		}
+
+		.gallery-grid--crochet {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-rows: none;
+		}
+
+		.hobbies-shell .gallery-item {
+			align-self: start;
+			aspect-ratio: 1 / 1;
+		}
+
+		.hobbies-shell .gallery-item img,
+		.hobbies-shell .placeholder {
+			width: 100%;
+			height: 100%;
+		}
+
+		.hobbies-shell .gallery-item img {
+			object-fit: cover;
+		}
+
+		.gallery-grid--crochet .gallery-item {
+			padding: 12px 0;
+			aspect-ratio: 3 / 4;
+		}
+	}
+
+	@media (min-width: 768px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+		.tab-button.is-active {
+			background: rgba(255, 255, 255, 0.16);
+			border-color: rgba(255, 255, 255, 0.32);
+			color: rgba(255, 255, 255, 0.96);
+		}
+
+		.tab-button.was-tapped {
+			color: #0f172a;
 		}
 	}
 </style>
