@@ -1,9 +1,715 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
+
+type GalleryImage = {
+	src: string;
+	orientation: 'horizontal' | 'vertical' | 'unknown';
+};
+
+const illustrationModules = import.meta.glob('../assets/doodles/*.{png,jpg,jpeg,webp,avif}', {
+	eager: true,
+	import: 'default',
+});
+
+const crochetModules = import.meta.glob('../assets/crochet/*.{png,jpg,jpeg,jfif,webp,avif}', {
+	eager: true,
+	import: 'default',
+});
+
+const posterModules = import.meta.glob('../assets/p*.*', {
+	eager: true,
+	import: 'default',
+});
+
+const toImageList = (modules: Record<string, unknown>): GalleryImage[] =>
+	Object.values(modules)
+		.map((mod) => {
+			if (typeof mod === 'string') {
+				return { src: mod, orientation: 'unknown' as const };
+			}
+			if (
+				mod &&
+				typeof mod === 'object' &&
+				'src' in mod &&
+				typeof (mod as { src?: unknown }).src === 'string'
+			) {
+				const image = mod as { src: string; width?: unknown; height?: unknown };
+				const width = typeof image.width === 'number' ? image.width : 0;
+				const height = typeof image.height === 'number' ? image.height : 0;
+				const orientation =
+					width > 0 && height > 0
+						? width >= height
+							? ('horizontal' as const)
+							: ('vertical' as const)
+						: ('unknown' as const);
+				return { src: image.src, orientation };
+			}
+			return { src: '', orientation: 'unknown' as const };
+		})
+		.filter((item) => item.src);
+
+const groupByOrientationRows = (images: GalleryImage[]): GalleryImage[] => {
+	const rowLanes: GalleryImage[][] = [[], [], [], []];
+
+	const horizontal = images.filter((img) => img.orientation === 'horizontal');
+	const vertical = images.filter((img) => img.orientation === 'vertical');
+	const unknown = images.filter((img) => img.orientation === 'unknown');
+
+	const pushToShorterLane = (laneA: number, laneB: number, image: GalleryImage) => {
+		if (rowLanes[laneA].length <= rowLanes[laneB].length) {
+			rowLanes[laneA].push(image);
+			return;
+		}
+		rowLanes[laneB].push(image);
+	};
+
+	horizontal.forEach((image) => pushToShorterLane(0, 1, image));
+	vertical.forEach((image) => pushToShorterLane(2, 3, image));
+
+	unknown.forEach((image) => {
+		let smallestLane = 0;
+		for (let i = 1; i < rowLanes.length; i += 1) {
+			if (rowLanes[i].length < rowLanes[smallestLane].length) {
+				smallestLane = i;
+			}
+		}
+		rowLanes[smallestLane].push(image);
+	});
+
+	const maxColumns = Math.max(...rowLanes.map((lane) => lane.length), 0);
+	const ordered: GalleryImage[] = [];
+	for (let col = 0; col < maxColumns; col += 1) {
+		for (let row = 0; row < rowLanes.length; row += 1) {
+			const image = rowLanes[row][col];
+			if (image) {
+				ordered.push(image);
+			}
+		}
+	}
+
+	return ordered;
+};
+
+const swapImagesByName = (images: GalleryImage[], nameA: string, nameB: string): GalleryImage[] => {
+	const swapped = [...images];
+	const a = nameA.toLowerCase();
+	const b = nameB.toLowerCase();
+	const indexA = swapped.findIndex((image) => image.src.toLowerCase().includes(a));
+	const indexB = swapped.findIndex((image) => image.src.toLowerCase().includes(b));
+
+	if (indexA === -1 || indexB === -1) {
+		return swapped;
+	}
+
+	[swapped[indexA], swapped[indexB]] = [swapped[indexB], swapped[indexA]];
+	return swapped;
+};
+
+const swapImagesByIndex = (images: GalleryImage[], indexA: number, indexB: number): GalleryImage[] => {
+	const swapped = [...images];
+	if (
+		indexA < 0 ||
+		indexB < 0 ||
+		indexA >= swapped.length ||
+		indexB >= swapped.length ||
+		indexA === indexB
+	) {
+		return swapped;
+	}
+
+	[swapped[indexA], swapped[indexB]] = [swapped[indexB], swapped[indexA]];
+	return swapped;
+};
+
+const padImagesToMinimum = (images: GalleryImage[], minimumCount: number): GalleryImage[] => {
+	if (images.length >= minimumCount) {
+		return images;
+	}
+
+	return [
+		...images,
+		...Array.from({ length: minimumCount - images.length }, () => ({
+			src: '',
+			orientation: 'unknown' as const,
+		})),
+	];
+};
+
+const orderImagesRowFirstForColumnGrid = (images: GalleryImage[], rows: number, columns: number): GalleryImage[] => {
+	if (rows <= 0 || columns <= 0 || images.length === 0) {
+		return images;
+	}
+
+	const pageSize = rows * columns;
+	const ordered: GalleryImage[] = [];
+
+	for (let pageStart = 0; pageStart < images.length; pageStart += pageSize) {
+		const page = images.slice(pageStart, pageStart + pageSize);
+		for (let column = 0; column < columns; column += 1) {
+			for (let row = 0; row < rows; row += 1) {
+				const image = page[row * columns + column];
+				if (image) {
+					ordered.push(image);
+				}
+			}
+		}
+	}
+
+	return ordered;
+};
+
+const illustrationImages = toImageList(illustrationModules);
+const crochetImages = toImageList(crochetModules);
+const fallbackImages = toImageList(posterModules);
+const backgroundImages = fallbackImages.map((item) => item.src);
+
+const safeFallback =
+	fallbackImages.length > 0
+		? fallbackImages
+		: Array.from({ length: 10 }, () => ({ src: '', orientation: 'unknown' as const }));
+
+const illustrationGallery = swapImagesByIndex(
+	swapImagesByName(
+		groupByOrientationRows((illustrationImages.length > 0 ? illustrationImages : safeFallback).filter((item) => item.src)),
+		'lazyme',
+		'sad'
+	),
+	0,
+	7
+);
+const crochetGallery = orderImagesRowFirstForColumnGrid(
+	padImagesToMinimum((crochetImages.length > 0 ? crochetImages : safeFallback).filter((item) => item.src), 9),
+	3,
+	3
+);
 ---
 
 <Layout>
 	<Header />
-	<main class="page-shell"></main>
+	<main class="landing-page hobbies-page">
+		<script is:inline>
+			try {
+				const initialBg =
+					sessionStorage.getItem('portfolio-painted-bg-image') ??
+					sessionStorage.getItem('portfolio-bg-image');
+				if (initialBg) {
+					document.documentElement.style.setProperty('--initial-bg-image', `url("${initialBg}")`);
+				}
+			} catch {
+				// Ignore storage access errors.
+			}
+		</script>
+		<div
+			class="bg-image-layer hobbies-bg-image-layer"
+			aria-hidden="true"
+			style={`--default-bg-image: url('${backgroundImages[0] ?? ''}')`}
+		>
+			<div class="bg-frame bg-frame-a"></div>
+			<div class="bg-frame bg-frame-b"></div>
+		</div>
+		<div class="bg-dim-overlay" aria-hidden="true"></div>
+
+		<section class="page-shell hobbies-shell">
+			<section class="tab-shell" aria-labelledby="hobbies-title">
+			<div class="tab-list" role="tablist" aria-label="Hobby categories">
+				<button class="tab-button is-active" role="tab" aria-selected="true" aria-controls="panel-illustration" id="tab-illustration" data-target="illustration">Illustration</button>
+				<button class="tab-button" role="tab" aria-selected="false" aria-controls="panel-crochet" id="tab-crochet" data-target="crochet">Crochet</button>
+			</div>
+
+			<section class="tab-panel" id="panel-illustration" role="tabpanel" aria-labelledby="tab-illustration" data-panel="illustration">
+				<div class="gallery-scroll" role="region" aria-label="Scrollable illustration gallery">
+					<div class="gallery-grid">
+						{illustrationGallery.map((item, index) => (
+							<article class={`gallery-item${item.src ? '' : ' is-empty'}`} style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;">
+								{item.src ? (
+									<img src={item.src} alt={`Illustration ${index + 1}`} loading="lazy" decoding="async" style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;" />
+								) : (
+									<div class="placeholder" role="img" aria-label="Illustration placeholder" style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;"></div>
+								)}
+							</article>
+						))}
+					</div>
+				</div>
+			</section>
+
+			<section class="tab-panel" id="panel-crochet" role="tabpanel" aria-labelledby="tab-crochet" data-panel="crochet" hidden>
+				<div class="gallery-scroll gallery-scroll--crochet" role="region" aria-label="Scrollable crochet gallery">
+					<div class="gallery-grid gallery-grid--crochet">
+						{crochetGallery.map((item, index) => (
+							<article class={`gallery-item${item.src ? '' : ' is-empty'}`} style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;">
+								{item.src ? (
+									<img src={item.src} alt={`Crochet ${index + 1}`} loading="lazy" decoding="async" style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;" />
+								) : (
+									<div class="placeholder" role="img" aria-label="Crochet placeholder" style="background: transparent; background-color: transparent; background-image: none; border: none; outline: none; box-shadow: none;"></div>
+								)}
+							</article>
+						))}
+					</div>
+				</div>
+			</section>
+			</section>
+		</section>
+	</main>
 </Layout>
+
+<script is:inline>
+	const syncHobbiesRouteSurface = () => {
+		document.body.dataset.routeSurface = 'hobbies';
+	};
+
+	const syncHobbiesLayoutMetrics = () => {
+		const tabList = document.querySelector('.tab-list');
+		const stickyTop = tabList instanceof HTMLElement ? Math.max(Math.round(tabList.getBoundingClientRect().top), 0) : 0;
+		document.documentElement.style.setProperty('--hobbies-sticky-top', `${stickyTop}px`);
+	};
+
+	const bindHobbiesLayoutMetrics = () => {
+		if (document.body.dataset.hobbiesGradientBound === 'true') {
+			return;
+		}
+
+		window.addEventListener('resize', syncHobbiesLayoutMetrics);
+		document.body.dataset.hobbiesGradientBound = 'true';
+	};
+
+	const initHobbyTabs = () => {
+		const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+		const panels = Array.from(document.querySelectorAll('.tab-panel'));
+
+		if (tabButtons.length === 0 || panels.length === 0) {
+			return;
+		}
+
+		const setActiveTab = (target) => {
+			tabButtons.forEach((button) => {
+				const isActive = button.dataset.target === target;
+				button.classList.toggle('is-active', isActive);
+				button.setAttribute('aria-selected', String(isActive));
+			});
+
+			panels.forEach((panel) => {
+				const isActive = panel.dataset.panel === target;
+				panel.hidden = !isActive;
+			});
+
+			window.requestAnimationFrame(syncHobbiesLayoutMetrics);
+		};
+
+		tabButtons.forEach((button) => {
+			if (button.dataset.tabBound === 'true') {
+				return;
+			}
+
+			button.addEventListener('click', () => {
+				const target = button.dataset.target;
+				if (!target) {
+					return;
+				}
+				setActiveTab(target);
+			});
+
+			button.dataset.tabBound = 'true';
+		});
+	};
+
+	syncHobbiesRouteSurface();
+	syncHobbiesLayoutMetrics();
+	bindHobbiesLayoutMetrics();
+
+	if (document.readyState === 'loading') {
+		document.addEventListener(
+			'DOMContentLoaded',
+			() => {
+				syncHobbiesLayoutMetrics();
+				initHobbyTabs();
+			},
+			{ once: true }
+		);
+	} else {
+		syncHobbiesLayoutMetrics();
+		initHobbyTabs();
+	}
+
+	document.addEventListener('astro:page-load', syncHobbiesRouteSurface);
+	document.addEventListener('astro:page-load', syncHobbiesLayoutMetrics);
+	document.addEventListener('astro:page-load', bindHobbiesLayoutMetrics);
+	document.addEventListener('astro:page-load', initHobbyTabs);
+</script>
+
+<script define:vars={{ backgroundImages }}>
+	const initDynamicBackground = () => {
+		const bgLayer = document.querySelector('.hobbies-bg-image-layer');
+		const bgFrameA = bgLayer?.querySelector('.bg-frame-a');
+		const bgFrameB = bgLayer?.querySelector('.bg-frame-b');
+		const bgStorageKey = 'portfolio-bg-image';
+		const paintedBgKey = 'portfolio-painted-bg-image';
+
+		if (
+			!(bgLayer instanceof HTMLElement) ||
+			!(bgFrameA instanceof HTMLElement) ||
+			!(bgFrameB instanceof HTMLElement) ||
+			!Array.isArray(backgroundImages) ||
+			backgroundImages.length === 0
+		) {
+			return;
+		}
+
+		let sharedBgImage = sessionStorage.getItem(bgStorageKey);
+		if (!sharedBgImage) {
+			const randomIndex = Math.floor(Math.random() * backgroundImages.length);
+			sharedBgImage = backgroundImages[randomIndex];
+			sessionStorage.setItem(bgStorageKey, sharedBgImage);
+		}
+
+		const paintedBgImage = sessionStorage.getItem(paintedBgKey);
+		const shouldUseFallback = !bgLayer.classList.contains('has-live-image');
+		const activeIsB = bgLayer.classList.contains('is-b-active');
+		const activeFrame = activeIsB ? bgFrameB : bgFrameA;
+		const inactiveFrame = activeIsB ? bgFrameA : bgFrameB;
+		let activeBgUrl = activeFrame.dataset.bgUrl ?? '';
+
+		const setFrameImage = (frame, imageUrl) => {
+			frame.style.backgroundImage = `url("${imageUrl}")`;
+			frame.dataset.bgUrl = imageUrl;
+		};
+
+		const revealBackground = () => {
+			if (shouldUseFallback) {
+				bgLayer.classList.add('has-live-image');
+			}
+			document.documentElement.style.setProperty('--initial-bg-image', `url("${sharedBgImage}")`);
+			sessionStorage.setItem(paintedBgKey, sharedBgImage);
+		};
+
+		const preloadImage = (imageUrl, onReady) => {
+			const preload = new Image();
+			preload.src = imageUrl;
+			if (typeof preload.decode === 'function') {
+				preload.decode().catch(() => undefined).finally(onReady);
+				return;
+			}
+			preload.onload = onReady;
+			preload.onerror = onReady;
+		};
+
+		if (!activeBgUrl) {
+			const seedImage = paintedBgImage || sharedBgImage;
+			setFrameImage(activeFrame, seedImage);
+			activeBgUrl = seedImage;
+		}
+
+		if (activeBgUrl !== sharedBgImage) {
+			preloadImage(sharedBgImage, () => {
+				setFrameImage(inactiveFrame, sharedBgImage);
+				bgLayer.classList.toggle('is-b-active', !activeIsB);
+				revealBackground();
+			});
+		} else {
+			setFrameImage(activeFrame, sharedBgImage);
+			revealBackground();
+		}
+
+		const maxShift = 26;
+		const scale = 1.12;
+		let ticking = false;
+
+		const updateParallax = () => {
+			const shift = Math.max(-maxShift, Math.min(maxShift, window.scrollY * 0.12));
+			bgLayer.style.setProperty('--bg-shift', `${shift.toFixed(2)}px`);
+			bgLayer.style.setProperty('--bg-scale', `${scale}`);
+			ticking = false;
+		};
+
+		const onScroll = () => {
+			if (ticking) {
+				return;
+			}
+
+			ticking = true;
+			window.requestAnimationFrame(updateParallax);
+		};
+
+		if (bgLayer.dataset.parallaxBound !== 'true') {
+			window.addEventListener('scroll', onScroll, { passive: true });
+			bgLayer.dataset.parallaxBound = 'true';
+		}
+		updateParallax();
+	};
+
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', initDynamicBackground, { once: true });
+	} else {
+		initDynamicBackground();
+	}
+
+	document.addEventListener('astro:page-load', initDynamicBackground);
+</script>
+
+
+<style>
+	:global(body[data-route-surface='hobbies']) {
+		background: transparent;
+	}
+
+	.landing-page {
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+		position: relative;
+		isolation: isolate;
+	}
+
+	.bg-image-layer,
+	.bg-dim-overlay {
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+		--hobbies-fade-shift: 200px;
+		-webkit-mask-image: linear-gradient(
+			180deg,
+			rgba(0, 0, 0, 1) 0%,
+			rgba(0, 0, 0, 1) calc(26% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0.72) calc(30% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0.26) calc(35% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0.06) calc(40% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0) calc(45% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0) 100%
+		);
+		mask-image: linear-gradient(
+			180deg,
+			rgba(0, 0, 0, 1) 0%,
+			rgba(0, 0, 0, 1) calc(26% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0.72) calc(30% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0.26) calc(37% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0.06) calc(44% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0) calc(50% - var(--hobbies-fade-shift)),
+			rgba(0, 0, 0, 0) 100%
+		);
+	}
+
+	.bg-image-layer {
+		position: fixed;
+		inset: 0;
+		z-index: 0;
+		overflow: hidden;
+		--bg-shift: 0px;
+		--bg-scale: 1.12;
+	}
+
+	.bg-image-layer::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image: var(--initial-bg-image, var(--default-bg-image, none));
+		background-position: center;
+		background-size: cover;
+		background-repeat: no-repeat;
+		filter: blur(5px) saturate(1.05) brightness(0.9);
+		transform: translate3d(0, 0, 0) scale(1.12);
+		opacity: 1;
+		transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.bg-image-layer.has-live-image::before {
+		opacity: 0;
+	}
+
+	.bg-frame {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		background-position: center;
+		background-size: cover;
+		background-repeat: no-repeat;
+		filter: blur(5px) saturate(1.05) brightness(0.9);
+		opacity: 0;
+		transform: translate3d(0, var(--bg-shift), 0) scale(var(--bg-scale));
+		transition: transform 120ms linear, opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+		will-change: transform;
+	}
+
+	.bg-frame-a {
+		background-image: var(--initial-bg-image, var(--default-bg-image, none));
+		opacity: 1;
+	}
+
+	.bg-image-layer.is-b-active .bg-frame-a {
+		opacity: 0;
+	}
+
+	.bg-image-layer.is-b-active .bg-frame-b {
+		opacity: 1;
+	}
+
+	.bg-dim-overlay {
+		z-index: 2;
+		background: linear-gradient(to bottom, rgba(2, 6, 23, 0.52), rgba(2, 6, 23, 0.68));
+	}
+
+	.hobbies-shell {
+		position: relative;
+		max-width: 1240px;
+		margin: 0 auto;
+		padding-top: 18px;
+		padding-bottom: 56px;
+		background: transparent;
+		font-family: 'Quicksand', sans-serif;
+	}
+
+	.tab-shell {
+		display: grid;
+		gap: 0;
+		justify-items: center;
+	}
+
+	.tab-list {
+		display: inline-flex;
+		gap: 8px;
+		padding: 6px;
+		margin: 14px 0 0;
+		position: sticky;
+		top: var(--hobbies-sticky-top, 108px);
+		z-index: 18;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.28);
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		width: fit-content;
+		justify-self: center;
+	}
+
+	.tab-panel {
+		position: relative;
+		z-index: 1;
+		width: 100%;
+		max-width: 1240px;
+		justify-self: center;
+	}
+
+	.tab-button {
+		height: 38px;
+		padding: 0 16px;
+		border-radius: 999px;
+		border: 1px solid transparent;
+		background: transparent;
+		color: rgba(255, 255, 255, 0.86);
+		font-family: inherit;
+		font-size: 0.92rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.tab-button.is-active {
+		background: rgba(255, 255, 255, 0.92);
+		border-color: rgba(255, 255, 255, 0.65);
+		color: #0f172a;
+	}
+
+	.gallery-scroll {
+		overflow-x: auto;
+		overflow-y: hidden;
+		padding-bottom: 0;
+		scrollbar-width: auto;
+		scrollbar-color: rgba(226, 232, 240, 0.86) rgba(15, 23, 42, 0.22);
+	}
+
+	.gallery-scroll--crochet {
+		padding-top: 25px;
+	}
+
+	.gallery-scroll::-webkit-scrollbar {
+		height: 9px;
+	}
+
+	.gallery-scroll::-webkit-scrollbar-track {
+		background: rgba(15, 23, 42, 0.22);
+		border-radius: 999px;
+	}
+
+	.gallery-scroll::-webkit-scrollbar-thumb {
+		background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(203, 213, 225, 0.92));
+		border: 2px solid rgba(15, 23, 42, 0.18);
+		border-radius: 999px;
+	}
+
+	.gallery-grid {
+		display: grid;
+		--tile-width: calc((100% - 40px) / 3);
+		--tile-height: calc(var(--tile-width) * 1160 / 1500);
+		grid-template-rows: repeat(4, var(--tile-height));
+		grid-auto-flow: column;
+		grid-auto-columns: var(--tile-width);
+		gap: 20px;
+		padding-bottom: 100px;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.gallery-grid--crochet {
+		--tile-width: calc((100% - 40px) / 3);
+		--tile-height: calc(var(--tile-width) * 1500 / 1160);
+		grid-template-rows: repeat(3, var(--tile-height));
+		grid-auto-columns: var(--tile-width);
+	}
+
+	.hobbies-shell .gallery-item {
+		margin: 0;
+		position: relative;
+		overflow: hidden;
+		border-radius: 0;
+		background: transparent !important;
+		background-color: transparent !important;
+		background-image: none !important;
+		border: none;
+		box-shadow: none;
+	}
+
+	.gallery-grid--crochet .gallery-item {
+		box-sizing: border-box;
+		padding: 25px 0;
+	}
+
+	.hobbies-shell .gallery-item img,
+	.hobbies-shell .placeholder {
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+
+	.hobbies-shell .gallery-item img {
+		object-fit: contain;
+		background: transparent !important;
+		background-color: transparent !important;
+		background-image: none !important;
+	}
+
+	.hobbies-shell .placeholder {
+		background: transparent !important;
+		background-color: transparent !important;
+		background-image: none !important;
+	}
+
+	.hobbies-shell .gallery-item.is-empty .placeholder {
+		background: rgba(255, 255, 255, 0.06) !important;
+		background-image:
+			linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 10px, transparent 10px, transparent 20px) !important;
+		border: 1px dashed rgba(255, 255, 255, 0.28) !important;
+	}
+
+	@media (max-width: 700px) {
+		.gallery-grid {
+			--tile-width: calc((100% - 16px) / 2);
+			--tile-height: calc(var(--tile-width) * 1160 / 1500);
+			grid-template-rows: repeat(4, var(--tile-height));
+			grid-auto-columns: var(--tile-width);
+			gap: 16px;
+		}
+
+		.gallery-grid--crochet {
+			--tile-width: calc((100% - 16px) / 2);
+			--tile-height: calc(var(--tile-width) * 1500 / 1160);
+			grid-template-rows: repeat(3, var(--tile-height));
+		}
+	}
+</style>
