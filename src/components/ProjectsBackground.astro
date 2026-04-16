@@ -1,0 +1,248 @@
+---
+const posterModules = import.meta.glob('../assets/p*.*', { eager: true, import: 'default' });
+const posters = Object.entries(posterModules)
+	.map(([path, mod]) => {
+		const match = path.match(/[\\/]p(\d+)\./i);
+		const src =
+			typeof mod === 'string'
+				? mod
+				: typeof (mod as { src?: unknown }).src === 'string'
+					? ((mod as { src: string }).src)
+					: typeof (mod as { default?: unknown }).default === 'string'
+						? ((mod as { default: string }).default)
+						: typeof ((mod as { default?: { src?: unknown } }).default?.src) === 'string'
+							? ((mod as { default: { src: string } }).default.src)
+							: '';
+		return {
+			src,
+		};
+	})
+	.filter((poster) => poster.src);
+
+const backgroundImages = posters.map((poster) => poster.src);
+---
+
+<script is:inline>
+	try {
+		const initialBg =
+			sessionStorage.getItem('portfolio-painted-bg-image') ??
+			sessionStorage.getItem('portfolio-bg-image');
+		if (initialBg) {
+			document.documentElement.style.setProperty('--initial-bg-image', `url("${initialBg}")`);
+		}
+	} catch {
+		// Ignore storage access errors.
+	}
+</script>
+
+<div
+	class="bg-image-layer"
+	aria-hidden="true"
+	style={`--default-bg-image: url('${backgroundImages[0] ?? ''}')`}
+>
+	<div class="bg-frame bg-frame-a"></div>
+	<div class="bg-frame bg-frame-b"></div>
+</div>
+<div class="bg-dim-overlay" aria-hidden="true"></div>
+
+<script define:vars={{ backgroundImages }}>
+	const initDynamicBackground = () => {
+		const bgLayer = document.querySelector('.bg-image-layer');
+		const bgFrameA = bgLayer?.querySelector('.bg-frame-a');
+		const bgFrameB = bgLayer?.querySelector('.bg-frame-b');
+		const bgStorageKey = 'portfolio-bg-image';
+		const paintedBgKey = 'portfolio-painted-bg-image';
+
+		if (
+			!(bgLayer instanceof HTMLElement) ||
+			!(bgFrameA instanceof HTMLElement) ||
+			!(bgFrameB instanceof HTMLElement) ||
+			!Array.isArray(backgroundImages) ||
+			backgroundImages.length === 0
+		) {
+			return;
+		}
+
+		let sharedBgImage = sessionStorage.getItem(bgStorageKey);
+		if (!sharedBgImage) {
+			const randomIndex = Math.floor(Math.random() * backgroundImages.length);
+			sharedBgImage = backgroundImages[randomIndex];
+			sessionStorage.setItem(bgStorageKey, sharedBgImage);
+		}
+
+		const paintedBgImage = sessionStorage.getItem(paintedBgKey);
+		const shouldUseFallback = !bgLayer.classList.contains('has-live-image');
+		const activeIsB = bgLayer.classList.contains('is-b-active');
+		const activeFrame = activeIsB ? bgFrameB : bgFrameA;
+		const inactiveFrame = activeIsB ? bgFrameA : bgFrameB;
+		let activeBgUrl = activeFrame.dataset.bgUrl ?? '';
+
+		const setFrameImage = (frame, imageUrl) => {
+			frame.style.backgroundImage = `url("${imageUrl}")`;
+			frame.dataset.bgUrl = imageUrl;
+		};
+
+		const revealBackground = () => {
+			if (shouldUseFallback) {
+				bgLayer.classList.add('has-live-image');
+			}
+			document.documentElement.style.setProperty('--initial-bg-image', `url("${sharedBgImage}")`);
+			sessionStorage.setItem(paintedBgKey, sharedBgImage);
+		};
+
+		const preloadImage = (imageUrl, onReady) => {
+			const preload = new Image();
+			preload.src = imageUrl;
+			if (typeof preload.decode === 'function') {
+				preload.decode().catch(() => undefined).finally(onReady);
+				return;
+			}
+			preload.onload = onReady;
+			preload.onerror = onReady;
+		};
+
+		if (!activeBgUrl) {
+			const seedImage = paintedBgImage || sharedBgImage;
+			setFrameImage(activeFrame, seedImage);
+			activeBgUrl = seedImage;
+		}
+
+		if (activeBgUrl !== sharedBgImage) {
+			preloadImage(sharedBgImage, () => {
+				setFrameImage(inactiveFrame, sharedBgImage);
+				bgLayer.classList.toggle('is-b-active', !activeIsB);
+				revealBackground();
+			});
+		} else {
+			setFrameImage(activeFrame, sharedBgImage);
+			revealBackground();
+		}
+
+		const maxShift = 26;
+		const scale = 1.12;
+		let ticking = false;
+
+		const getPullRefreshOffset = () => {
+			const visualViewportOffset = window.visualViewport?.offsetTop ?? 0;
+			if (visualViewportOffset > 0) {
+				return visualViewportOffset;
+			}
+
+			const documentTop = document.documentElement.getBoundingClientRect().top;
+			return documentTop > 0 ? documentTop : 0;
+		};
+
+		const updateParallax = () => {
+			const shift = Math.max(-maxShift, Math.min(maxShift + 44, window.scrollY * 0.12 + getPullRefreshOffset()));
+			bgLayer.style.setProperty('--bg-shift', `${shift.toFixed(2)}px`);
+			bgLayer.style.setProperty('--bg-scale', `${scale}`);
+			ticking = false;
+		};
+
+		const onScroll = () => {
+			if (ticking) {
+				return;
+			}
+
+			ticking = true;
+			window.requestAnimationFrame(updateParallax);
+		};
+
+		if (bgLayer.dataset.parallaxBound !== 'true') {
+			window.addEventListener('scroll', onScroll, { passive: true });
+			window.visualViewport?.addEventListener('scroll', onScroll, { passive: true });
+			window.visualViewport?.addEventListener('resize', onScroll, { passive: true });
+			bgLayer.dataset.parallaxBound = 'true';
+		}
+		updateParallax();
+	};
+
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', initDynamicBackground, { once: true });
+	} else {
+		initDynamicBackground();
+	}
+
+	document.addEventListener('astro:page-load', initDynamicBackground);
+</script>
+
+<style>
+	:global(body) {
+		margin: 0;
+		min-height: 100vh;
+		font-family: Inter, system-ui, sans-serif;
+		background: #020617;
+		color: #0f172a;
+	}
+
+	:global(.projects-background-surface) {
+		position: relative;
+		isolation: isolate;
+		min-height: 100vh;
+	}
+
+	.bg-image-layer,
+	.bg-dim-overlay {
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+	}
+
+	.bg-image-layer {
+		z-index: 0;
+		overflow: hidden;
+		--bg-shift: 0px;
+		--bg-scale: 1.12;
+	}
+
+	.bg-image-layer::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image: var(--initial-bg-image, var(--default-bg-image, none));
+		background-position: center;
+		background-size: cover;
+		background-repeat: no-repeat;
+		filter: blur(5px) saturate(1.05) brightness(0.9);
+		transform: translate3d(0, 0, 0) scale(1.12);
+		opacity: 1;
+		transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.bg-image-layer.has-live-image::before {
+		opacity: 0;
+	}
+
+	.bg-frame {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		background-position: center;
+		background-size: cover;
+		background-repeat: no-repeat;
+		filter: blur(5px) saturate(1.05) brightness(0.9);
+		opacity: 0;
+		transform: translate3d(0, var(--bg-shift), 0) scale(var(--bg-scale));
+		transition: transform 120ms linear, opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+		will-change: transform;
+	}
+
+	.bg-frame-a {
+		background-image: var(--initial-bg-image, var(--default-bg-image, none));
+		opacity: 1;
+	}
+
+	.bg-image-layer.is-b-active .bg-frame-a {
+		opacity: 0;
+	}
+
+	.bg-image-layer.is-b-active .bg-frame-b {
+		opacity: 1;
+	}
+
+	.bg-dim-overlay {
+		z-index: 1;
+		background: linear-gradient(to bottom, rgba(2, 6, 23, 0.52), rgba(2, 6, 23, 0.68));
+	}
+</style>
